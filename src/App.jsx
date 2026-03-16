@@ -6,7 +6,9 @@ import { SortSelector } from './components/SortSelector';
 import { VideoGrid } from './components/VideoGrid';
 import { StatsDashboard } from './components/StatsDashboard';
 import { StorageSelector } from './components/StorageSelector';
+import { SearchInput } from './components/SearchInput';
 import { useYouTubeApi } from './hooks/useYouTubeApi';
+import { useYouTubeSearch } from './hooks/useYouTubeSearch';
 import { useFavorites } from './hooks/useFavorites';
 import { useDarkMode } from './hooks/useDarkMode';
 import { useChannelData } from './hooks/useChannelData';
@@ -49,11 +51,31 @@ function App() {
     selectedCategory
   );
 
+  // 검색 훅
+  const {
+    searchResults,
+    loading: searchLoading,
+    error: searchError,
+    fromCache: searchFromCache,
+    lastQuery,
+    search,
+    clearSearch,
+  } = useYouTubeSearch(apiKey);
+
+  // 검색 모드 여부
+  const isSearchMode = lastQuery.length > 0;
+
+  // 현재 표시할 비디오 목록 (검색 모드면 검색 결과, 아니면 인기 동영상)
+  const currentVideos = isSearchMode ? searchResults : videos;
+  const currentLoading = isSearchMode ? searchLoading : loading;
+  const currentError = isSearchMode ? searchError : error;
+  const currentFromCache = isSearchMode ? searchFromCache : fromCache;
+
   // 모든 채널 데이터 로드 여부 확인
   const allChannelIds = useMemo(() => {
-    if (!videos || videos.length === 0) return [];
-    return videos.map((v) => v.snippet?.channelId).filter(Boolean);
-  }, [videos]);
+    if (!currentVideos || currentVideos.length === 0) return [];
+    return currentVideos.map((v) => v.snippet?.channelId).filter(Boolean);
+  }, [currentVideos]);
 
   const allChannelDataLoaded = useMemo(() => {
     return allChannelIds.length > 0 && hasAllChannelData(allChannelIds);
@@ -68,12 +90,12 @@ function App() {
 
   // 필터링 및 정렬된 비디오 목록
   const sortedVideos = useMemo(() => {
-    if (!videos || videos.length === 0) return videos;
+    if (!currentVideos || currentVideos.length === 0) return currentVideos;
 
     // 즐겨찾기 필터
     let filtered = showFavoritesOnly
-      ? videos.filter((v) => isFavorite(v.id))
-      : videos;
+      ? currentVideos.filter((v) => isFavorite(v.id))
+      : currentVideos;
 
     const sorted = [...filtered];
 
@@ -101,7 +123,7 @@ function App() {
       default:
         return filtered; // 기본 순서 유지
     }
-  }, [videos, selectedSort, showFavoritesOnly, isFavorite, getChannelData]);
+  }, [currentVideos, selectedSort, showFavoritesOnly, isFavorite, getChannelData]);
 
   // 현재 선택된 국가명 가져오기
   const currentCountryName = COUNTRIES.find(c => c.code === selectedCountry)?.name || selectedCountry;
@@ -167,23 +189,47 @@ function App() {
           </div>
         </section>
 
-        {/* 카테고리 필터 */}
-        <section className="mb-6">
-          <CategoryFilter
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-          />
-        </section>
+        {/* 검색 섹션 */}
+        {apiKey && (
+          <section className="mb-6">
+            <SearchInput
+              onSearch={search}
+              onClear={clearSearch}
+              loading={searchLoading}
+              disabled={!apiKey}
+              lastQuery={lastQuery}
+            />
+          </section>
+        )}
+
+        {/* 카테고리 필터 (검색 모드가 아닐 때만 표시) */}
+        {!isSearchMode && (
+          <section className="mb-6">
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+            />
+          </section>
+        )}
 
         {/* 결과 헤더 */}
-        {apiKey && !loading && videos.length > 0 && (
+        {apiKey && !currentLoading && sortedVideos && sortedVideos.length > 0 && (
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="text-gray-600 dark:text-gray-300">
-                <span className="font-medium">{currentCountryName}</span> 인기 동영상
-                <span className="font-medium ml-1">{sortedVideos.length}</span>개
+                {isSearchMode ? (
+                  <>
+                    "<span className="font-medium text-red-600">{lastQuery}</span>" 검색 결과
+                    <span className="font-medium ml-1">{sortedVideos.length}</span>개
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium">{currentCountryName}</span> 인기 동영상
+                    <span className="font-medium ml-1">{sortedVideos.length}</span>개
+                  </>
+                )}
                 {showFavoritesOnly && <span className="ml-1">(즐겨찾기)</span>}
-                {fromCache && (
+                {currentFromCache && (
                   <span className="ml-2 text-xs text-green-600 dark:text-green-400">(캐시)</span>
                 )}
               </div>
@@ -266,8 +312,8 @@ function App() {
         {/* 비디오 그리드 */}
         <VideoGrid
           videos={sortedVideos}
-          loading={loading}
-          error={error}
+          loading={currentLoading}
+          error={currentError}
           hasApiKey={!!apiKey}
           isFavorite={isFavorite}
           onToggleFavorite={toggleFavorite}
@@ -279,7 +325,7 @@ function App() {
 
       {/* 통계 대시보드 모달 */}
       <StatsDashboard
-        videos={videos}
+        videos={currentVideos}
         isOpen={showStats}
         onClose={() => setShowStats(false)}
       />
