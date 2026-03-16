@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { STORAGE_KEY } from '../utils/constants';
+import { setItem, removeItem } from '../utils/storage';
 
 export function ApiKeyInput({ apiKey, onApiKeyChange }) {
   const [inputValue, setInputValue] = useState(apiKey);
@@ -8,14 +9,14 @@ export function ApiKeyInput({ apiKey, onApiKeyChange }) {
   const handleSave = () => {
     const trimmedKey = inputValue.trim();
     if (trimmedKey) {
-      localStorage.setItem(STORAGE_KEY, trimmedKey);
+      setItem(STORAGE_KEY, trimmedKey);
       onApiKeyChange(trimmedKey);
       setIsEditing(false);
     }
   };
 
   const handleClear = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    removeItem(STORAGE_KEY);
     setInputValue('');
     onApiKeyChange('');
     setIsEditing(true);

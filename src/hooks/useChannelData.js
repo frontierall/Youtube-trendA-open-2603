@@ -1,14 +1,15 @@
 import { useState, useCallback } from 'react';
+import { getItem, setItem } from '../utils/storage';
 
 const YOUTUBE_CHANNELS_API = 'https://www.googleapis.com/youtube/v3/channels';
 const CHANNEL_CACHE_KEY = 'youtube_channel_cache';
 
-// 채널 캐시 (메모리 + localStorage)
+// 채널 캐시 (메모리 + 스토리지)
 let channelCache = {};
 
-// localStorage에서 캐시 로드
+// 스토리지에서 캐시 로드
 try {
-  const stored = localStorage.getItem(CHANNEL_CACHE_KEY);
+  const stored = getItem(CHANNEL_CACHE_KEY);
   if (stored) {
     channelCache = JSON.parse(stored);
   }
@@ -19,7 +20,7 @@ try {
 // 캐시 저장
 function saveCache() {
   try {
-    localStorage.setItem(CHANNEL_CACHE_KEY, JSON.stringify(channelCache));
+    setItem(CHANNEL_CACHE_KEY, JSON.stringify(channelCache));
   } catch (e) {
     // 용량 초과 시 캐시 클리어
     channelCache = {};

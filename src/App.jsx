@@ -5,16 +5,18 @@ import { CategoryFilter } from './components/CategoryFilter';
 import { SortSelector } from './components/SortSelector';
 import { VideoGrid } from './components/VideoGrid';
 import { StatsDashboard } from './components/StatsDashboard';
+import { StorageSelector } from './components/StorageSelector';
 import { useYouTubeApi } from './hooks/useYouTubeApi';
 import { useFavorites } from './hooks/useFavorites';
 import { useDarkMode } from './hooks/useDarkMode';
 import { useChannelData } from './hooks/useChannelData';
 import { STORAGE_KEY, COUNTRIES } from './utils/constants';
+import { getItem } from './utils/storage';
 
 function App() {
-  // API 키 상태 (localStorage에서 초기화)
+  // API 키 상태 (스토리지에서 초기화)
   const [apiKey, setApiKey] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) || '';
+    return getItem(STORAGE_KEY) || '';
   });
 
   // 필터 상태
@@ -157,7 +159,12 @@ function App() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* API 키 입력 섹션 */}
         <section className="mb-6">
-          <ApiKeyInput apiKey={apiKey} onApiKeyChange={setApiKey} />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1">
+              <ApiKeyInput apiKey={apiKey} onApiKeyChange={setApiKey} />
+            </div>
+            <StorageSelector />
+          </div>
         </section>
 
         {/* 카테고리 필터 */}

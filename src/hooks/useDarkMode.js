@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getItem, setItem } from '../utils/storage';
 
 const DARK_MODE_KEY = 'youtube_dark_mode';
 
@@ -7,7 +8,7 @@ const DARK_MODE_KEY = 'youtube_dark_mode';
  */
 export function useDarkMode() {
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    const stored = localStorage.getItem(DARK_MODE_KEY);
+    const stored = getItem(DARK_MODE_KEY);
     if (stored !== null) {
       return stored === 'true';
     }
@@ -16,7 +17,7 @@ export function useDarkMode() {
   });
 
   useEffect(() => {
-    localStorage.setItem(DARK_MODE_KEY, isDarkMode.toString());
+    setItem(DARK_MODE_KEY, isDarkMode.toString());
 
     // HTML 요소에 dark 클래스 추가/제거
     if (isDarkMode) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getItem, setItem } from '../utils/storage';
 
 const FAVORITES_KEY = 'youtube_favorites';
 
@@ -7,13 +8,13 @@ const FAVORITES_KEY = 'youtube_favorites';
  */
 export function useFavorites() {
   const [favorites, setFavorites] = useState(() => {
-    const stored = localStorage.getItem(FAVORITES_KEY);
+    const stored = getItem(FAVORITES_KEY);
     return stored ? JSON.parse(stored) : [];
   });
 
-  // localStorage에 저장
+  // 스토리지에 저장
   useEffect(() => {
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+    setItem(FAVORITES_KEY, JSON.stringify(favorites));
   }, [favorites]);
 
   // 즐겨찾기 추가
