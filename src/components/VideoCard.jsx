@@ -2,11 +2,21 @@ import { useState, useRef } from 'react';
 import { formatViewCount, formatRelativeTime, formatCount, formatDuration } from '../utils/formatViewCount';
 
 
-export function VideoCard({ video, rank, isFavorite, onToggleFavorite }) {
+export function VideoCard({ video, rank, isFavorite, onToggleFavorite, loadChannelData, isChannelLoading, getChannelData }) {
   const [showPreview, setShowPreview] = useState(false);
   const [copied, setCopied] = useState(false);
   const hoverTimeout = useRef(null);
   const { snippet, statistics, contentDetails } = video;
+
+  // 채널 데이터 (온디맨드 로딩)
+  const channelData = getChannelData?.(snippet.channelId);
+  const channelLoading = isChannelLoading?.(snippet.channelId);
+
+  const handleLoadSubscribers = () => {
+    if (loadChannelData && !channelData && !channelLoading) {
+      loadChannelData(snippet.channelId);
+    }
+  };
 
   const thumbnailUrl = snippet.thumbnails?.maxres?.url
     || snippet.thumbnails?.high?.url
@@ -159,8 +169,8 @@ export function VideoCard({ video, rank, isFavorite, onToggleFavorite }) {
           )}
         </div>
 
-        {/* 채널명 */}
-        <div className="mt-2">
+        {/* 채널명 + 구독자 수 */}
+        <div className="mt-2 flex items-center gap-2">
           <a
             href={channelUrl}
             target="_blank"
@@ -169,6 +179,28 @@ export function VideoCard({ video, rank, isFavorite, onToggleFavorite }) {
           >
             {snippet.channelTitle}
           </a>
+          {/* 구독자 수: 온디맨드 로딩 */}
+          {channelData && !channelData.hiddenSubscriberCount && channelData.subscriberCount ? (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              구독자 {formatCount(channelData.subscriberCount)}명
+            </span>
+          ) : channelLoading ? (
+            <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              로딩...
+            </span>
+          ) : loadChannelData ? (
+            <button
+              onClick={handleLoadSubscribers}
+              className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+              title="구독자 수 보기"
+            >
+              구독자 보기
+            </button>
+          ) : null}
         </div>
 
         {/* 조회수 및 게시일 */}

@@ -1,7 +1,7 @@
 import { VideoCard } from './VideoCard';
 import { SkeletonCard } from './SkeletonCard';
 
-export function VideoGrid({ videos, loading, error, hasApiKey, isFavorite, onToggleFavorite }) {
+export function VideoGrid({ videos, loading, error, hasApiKey, isFavorite, onToggleFavorite, loadChannelData, isChannelLoading, getChannelData }) {
   // API 키가 없을 때 안내 메시지
   if (!hasApiKey) {
     return (
@@ -58,6 +58,9 @@ export function VideoGrid({ videos, loading, error, hasApiKey, isFavorite, onTog
           rank={index + 1}
           isFavorite={isFavorite?.(video.id)}
           onToggleFavorite={onToggleFavorite}
+          loadChannelData={loadChannelData}
+          isChannelLoading={isChannelLoading}
+          getChannelData={getChannelData}
         />
       ))}
     </div>

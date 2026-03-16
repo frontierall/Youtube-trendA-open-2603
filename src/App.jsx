@@ -8,6 +8,7 @@ import { StatsDashboard } from './components/StatsDashboard';
 import { useYouTubeApi } from './hooks/useYouTubeApi';
 import { useFavorites } from './hooks/useFavorites';
 import { useDarkMode } from './hooks/useDarkMode';
+import { useChannelData } from './hooks/useChannelData';
 import { STORAGE_KEY, COUNTRIES } from './utils/constants';
 
 function App() {
@@ -29,12 +30,39 @@ function App() {
   // 다크 모드 훅
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
+  // 채널 데이터 훅 (온디맨드)
+  const {
+    loadChannelData,
+    loadAllChannelData,
+    isLoading: isChannelLoading,
+    isAnyLoading: isAnyChannelLoading,
+    getChannelData,
+    hasAllChannelData,
+  } = useChannelData(apiKey);
+
   // YouTube API 훅 사용
   const { videos, loading, error, fromCache, forceRefetch } = useYouTubeApi(
     apiKey,
     selectedCountry,
     selectedCategory
   );
+
+  // 모든 채널 데이터 로드 여부 확인
+  const allChannelIds = useMemo(() => {
+    if (!videos || videos.length === 0) return [];
+    return videos.map((v) => v.snippet?.channelId).filter(Boolean);
+  }, [videos]);
+
+  const allChannelDataLoaded = useMemo(() => {
+    return allChannelIds.length > 0 && hasAllChannelData(allChannelIds);
+  }, [allChannelIds, hasAllChannelData]);
+
+  // 전체 구독자 로드 핸들러
+  const handleLoadAllSubscribers = () => {
+    if (allChannelIds.length > 0) {
+      loadAllChannelData(allChannelIds);
+    }
+  };
 
   // 필터링 및 정렬된 비디오 목록
   const sortedVideos = useMemo(() => {
@@ -60,10 +88,18 @@ function App() {
         return sorted.sort((a, b) =>
           new Date(b.snippet?.publishedAt) - new Date(a.snippet?.publishedAt)
         );
+      case 'subscriberCount':
+        return sorted.sort((a, b) => {
+          const aData = getChannelData(a.snippet?.channelId);
+          const bData = getChannelData(b.snippet?.channelId);
+          const aCount = parseInt(aData?.subscriberCount || 0);
+          const bCount = parseInt(bData?.subscriberCount || 0);
+          return bCount - aCount;
+        });
       default:
         return filtered; // 기본 순서 유지
     }
-  }, [videos, selectedSort, showFavoritesOnly, isFavorite]);
+  }, [videos, selectedSort, showFavoritesOnly, isFavorite, getChannelData]);
 
   // 현재 선택된 국가명 가져오기
   const currentCountryName = COUNTRIES.find(c => c.code === selectedCountry)?.name || selectedCountry;
@@ -177,10 +213,45 @@ function App() {
                 </svg>
                 통계
               </button>
+              {/* 전체 구독자 보기 버튼 */}
+              {!allChannelDataLoaded && (
+                <button
+                  onClick={handleLoadAllSubscribers}
+                  disabled={isAnyChannelLoading()}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={`${allChannelIds.length}개 채널의 구독자 수 로드 (API ${allChannelIds.length} 유닛 소비)`}
+                >
+                  {isAnyChannelLoading() ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      로딩 중...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      전체 구독자 보기
+                    </>
+                  )}
+                </button>
+              )}
+              {allChannelDataLoaded && (
+                <span className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  구독자 로드 완료
+                </span>
+              )}
             </div>
             <SortSelector
               selectedSort={selectedSort}
               onSortChange={setSelectedSort}
+              hasAllChannelData={allChannelDataLoaded}
             />
           </div>
         )}
@@ -193,6 +264,9 @@ function App() {
           hasApiKey={!!apiKey}
           isFavorite={isFavorite}
           onToggleFavorite={toggleFavorite}
+          loadChannelData={loadChannelData}
+          isChannelLoading={isChannelLoading}
+          getChannelData={getChannelData}
         />
       </main>
 
