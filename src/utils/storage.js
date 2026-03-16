@@ -1,9 +1,14 @@
+import { STORAGE_KEY } from './constants';
+
 // 스토리지 타입 설정 키 (이 설정은 항상 localStorage에 저장)
 const STORAGE_TYPE_KEY = 'youtube_storage_type';
 
+// API 키 메모리 저장소 (저장 안 함 모드용)
+let memoryApiKey = '';
+
 /**
  * 현재 스토리지 타입 가져오기
- * @returns {'local' | 'session'} 스토리지 타입
+ * @returns {'local' | 'session' | 'noApiKey'} 스토리지 타입
  */
 export function getStorageType() {
   return localStorage.getItem(STORAGE_TYPE_KEY) || 'local';
@@ -11,7 +16,7 @@ export function getStorageType() {
 
 /**
  * 스토리지 타입 설정
- * @param {'local' | 'session'} type - 스토리지 타입
+ * @param {'local' | 'session' | 'noApiKey'} type - 스토리지 타입
  */
 export function setStorageType(type) {
   const oldType = getStorageType();
@@ -39,6 +44,13 @@ export function getStorage() {
  * @returns {string|null} 값
  */
 export function getItem(key) {
+  const type = getStorageType();
+
+  // API 키 저장 안 함 모드: API 키는 메모리에서 가져오기
+  if (type === 'noApiKey' && key === STORAGE_KEY) {
+    return memoryApiKey || null;
+  }
+
   return getStorage().getItem(key);
 }
 
@@ -48,6 +60,17 @@ export function getItem(key) {
  * @param {string} value - 값
  */
 export function setItem(key, value) {
+  const type = getStorageType();
+
+  // API 키 저장 안 함 모드: API 키는 메모리에만 저장
+  if (type === 'noApiKey' && key === STORAGE_KEY) {
+    memoryApiKey = value;
+    // 스토리지에 저장된 API 키가 있으면 삭제
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
+    return;
+  }
+
   try {
     getStorage().setItem(key, value);
   } catch (e) {
@@ -60,6 +83,13 @@ export function setItem(key, value) {
  * @param {string} key - 키
  */
 export function removeItem(key) {
+  const type = getStorageType();
+
+  // API 키 저장 안 함 모드: 메모리에서도 삭제
+  if (type === 'noApiKey' && key === STORAGE_KEY) {
+    memoryApiKey = '';
+  }
+
   getStorage().removeItem(key);
 }
 
@@ -74,8 +104,8 @@ export function getAllKeys() {
 
 /**
  * 기존 스토리지에서 새 스토리지로 데이터 마이그레이션
- * @param {'local' | 'session'} fromType - 기존 스토리지 타입
- * @param {'local' | 'session'} toType - 새 스토리지 타입
+ * @param {'local' | 'session' | 'noApiKey'} fromType - 기존 스토리지 타입
+ * @param {'local' | 'session' | 'noApiKey'} toType - 새 스토리지 타입
  */
 function migrateStorage(fromType, toType) {
   const fromStorage = fromType === 'session' ? sessionStorage : localStorage;
@@ -89,8 +119,19 @@ function migrateStorage(fromType, toType) {
   keysToMigrate.forEach(key => {
     const value = fromStorage.getItem(key);
     if (value) {
+      // noApiKey 모드로 변경 시 API 키는 마이그레이션하지 않음
+      if (toType === 'noApiKey' && key === STORAGE_KEY) {
+        fromStorage.removeItem(key);
+        return;
+      }
+
       toStorage.setItem(key, value);
       fromStorage.removeItem(key);
     }
   });
+
+  // noApiKey 모드에서 다른 모드로 변경 시 메모리 API 키 초기화
+  if (fromType === 'noApiKey') {
+    memoryApiKey = '';
+  }
 }
