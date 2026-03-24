@@ -1,0 +1,202 @@
+====================================================
+  Claude Code Prompt Guide
+  YouTube 인기 급상승 동영상 뷰어
+====================================================
+
+
+====================================================
+STEP 1 — 프로젝트 기반 & API 연동
+====================================================
+목표: Vite + React + Tailwind 환경 세팅, YouTube API 연동, 기본 영상 카드 표시
+
+----------------------------------------------------
+[PROMPT]
+----------------------------------------------------
+Create a YouTube Trending Videos Viewer web app using React 18, Vite, and Tailwind CSS.
+
+Project setup:
+- Initialize with Vite (React template)
+- Install and configure Tailwind CSS with PostCSS
+- Configure Vite for GitHub Pages deployment (base path in vite.config.js)
+
+Core requirements for this step:
+
+1. API Key Management (src/components/ApiKeyInput.jsx)
+   - Input field to enter YouTube Data API v3 key
+   - Save key to localStorage
+   - Show masked key (first 8 + last 4 characters) when saved
+   - Clear/reset button
+
+2. YouTube API hook (src/hooks/useYouTubeApi.js)
+   - Fetch trending videos from YouTube Data API v3
+   - Endpoint: GET https://www.googleapis.com/youtube/v3/videos
+   - Params: chart=mostPopular, part=snippet,statistics,contentDetails, regionCode, videoCategoryId, maxResults=25
+   - Return: { videos, loading, error, refetch }
+
+3. VideoCard component (src/components/VideoCard.jsx)
+   - Thumbnail image (mqdefault)
+   - Video title (truncated 2 lines)
+   - Channel name
+   - View count formatted as Korean units (e.g., 123만회)
+   - Like count
+   - Video duration (ISO 8601 → MM:SS)
+   - Published relative time (e.g., 3일 전)
+   - Click opens YouTube in new tab
+
+4. VideoGrid component (src/components/VideoGrid.jsx)
+   - Responsive grid: 1 col mobile → 2 tablet → 3 desktop → 4 wide
+   - Render list of VideoCard components
+   - Show error message if API fails
+
+5. App.jsx
+   - Show ApiKeyInput if no key saved
+   - Fetch and display trending videos on load
+   - Basic header with app title
+
+Utility files:
+- src/utils/formatViewCount.js: formatViewCount(), formatDuration(), formatRelativeTime()
+- src/utils/constants.js: COUNTRIES array (KR, US, JP, GB, DE, FR, CA, AU with labels),
+  CATEGORIES array (14 YouTube category IDs with Korean labels)
+----------------------------------------------------
+
+
+====================================================
+STEP 2 — 필터링, 정렬, 검색, 캐싱
+====================================================
+목표: 국가/카테고리 필터, 정렬, 검색, 스켈레톤 UI, API 응답 캐싱 추가
+
+----------------------------------------------------
+[PROMPT]
+----------------------------------------------------
+Extend the YouTube Trending Viewer app with filtering, sorting, search, caching, and loading states.
+
+Build on the existing src/ structure. Do not rewrite working code — only add new features.
+
+1. Country selector (src/components/CountrySelector.jsx)
+   - Dropdown to select from 8 countries (use COUNTRIES from constants.js)
+   - Default: KR (South Korea)
+   - On change: re-fetch trending videos with new regionCode
+
+2. Category filter (src/components/CategoryFilter.jsx)
+   - Horizontal scrollable button group
+   - "전체" (all) + 14 category buttons
+   - Active state highlighted
+   - On click: re-fetch with videoCategoryId
+
+3. Sort selector (src/components/SortSelector.jsx)
+   - Dropdown with options: views (조회수순), likes (좋아요순), date (최신순), subscribers (구독자순)
+   - Sorts the already-fetched video list client-side (no new API call)
+   - Subscribers sort is only active after channel data is loaded
+
+4. Search (src/components/SearchInput.jsx + src/hooks/useYouTubeSearch.js)
+   - Search input with submit button
+   - Two-stage: POST to search endpoint (quota: 100) → fetch video details by IDs (quota: 1)
+   - Show quota warning: "검색은 API 할당량을 100 소모합니다"
+   - Cache search results by query string
+
+5. Caching (src/hooks/useCache.js)
+   - Generic cache with 5-minute TTL
+   - Keys: trending_{regionCode}_{categoryId}, search_{query}
+   - Auto-cleanup of expired entries
+   - Apply cache to useYouTubeApi and useYouTubeSearch
+
+6. Skeleton loading (src/components/SkeletonCard.jsx)
+   - Placeholder card matching VideoCard dimensions
+   - Animated pulse effect (Tailwind animate-pulse)
+   - Show 12 skeleton cards during loading in VideoGrid
+
+7. App.jsx updates
+   - Add CountrySelector, CategoryFilter, SortSelector, SearchInput to header area
+   - When search query is active, show search results instead of trending
+   - Add "트렌딩으로 돌아가기" button when in search mode
+   - Manage: selectedCountry, selectedCategory, sortBy, searchQuery state
+----------------------------------------------------
+
+
+====================================================
+STEP 3 — 즐겨찾기, 다크모드, 통계, 보안 스토리지, 채널 구독자
+====================================================
+목표: 즐겨찾기, 다크모드, 통계 대시보드, 스토리지 모드, 채널 구독자 수 로딩 완성
+
+----------------------------------------------------
+[PROMPT]
+----------------------------------------------------
+Add advanced features to the YouTube Trending Viewer: favorites, dark mode, stats dashboard,
+flexible storage modes, channel subscriber data, and thumbnail hover preview.
+
+1. Storage abstraction (src/utils/storage.js)
+   - Support 3 modes: "local" (localStorage), "session" (sessionStorage), "none" (memory only)
+   - Functions: getItem(key), setItem(key, value), removeItem(key), getStorageType(), setStorageType(type)
+   - Auto-migrate data when mode changes
+
+2. Storage selector (src/components/StorageSelector.jsx)
+   - Modal triggered by settings icon
+   - 3 options with descriptions:
+     - 로컬 저장소: 영구 저장
+     - 세션 저장소: 브라우저 종료 시 삭제
+     - 저장 안 함: API 키를 메모리에만 보관 (보안 최우선)
+   - Show current mode, allow switching
+
+3. Favorites (src/hooks/useFavorites.js)
+   - Toggle favorite by video ID
+   - Persist to storage (using storage.js)
+   - Functions: favorites (Set), toggleFavorite(id), isFavorite(id)
+   - In VideoCard: show star icon button, filled when favorited
+   - In App.jsx: "즐겨찾기만 보기" toggle filter button
+
+4. Dark mode (src/hooks/useDarkMode.js)
+   - Toggle dark/light with localStorage persistence
+   - Detect system preference (prefers-color-scheme) as default
+   - Apply "dark" class to <html> element (Tailwind dark mode)
+   - Add toggle button in header
+
+5. Channel subscriber data (src/hooks/useChannelData.js)
+   - On-demand fetching: only load when user requests
+   - API: GET https://www.googleapis.com/youtube/v3/channels?part=statistics&id={channelId}
+   - Cache in memory + localStorage: key channel_{channelId}
+   - Batch loading: "구독자 수 불러오기" button loads all visible channels at once
+   - In VideoCard: show subscriber count if loaded, else show load button
+
+6. Thumbnail hover preview (VideoCard.jsx update)
+   - On mouseenter: after 0.8s delay, show iframe embed (youtube.com/embed/{videoId}?autoplay=1&mute=1)
+   - On mouseleave: cancel timer, hide iframe
+   - Overlay on thumbnail with close button
+
+7. Statistics dashboard (src/components/StatsDashboard.jsx)
+   - Modal opened by "통계" button in header
+   - Display aggregate stats from current video list:
+     - Total views, total likes
+     - Average views per video
+     - HD video ratio (%)
+     - Top 3 most viewed videos
+     - Top 3 most liked videos
+   - Nice card layout with icons
+
+8. ApiKeyInput.jsx update
+   - Integrate with storage.js (use current storage mode)
+   - Show current storage mode label next to saved key
+   - Show StorageSelector trigger button
+
+Final App.jsx layout:
+- Header: [logo/title] [dark mode toggle] [storage settings] [stats button]
+- Controls row: [CountrySelector] [CategoryFilter] [SortSelector] [SearchInput]
+- Action row: [즐겨찾기 필터] [구독자 수 불러오기] [새로고침]
+- VideoGrid with all features integrated
+----------------------------------------------------
+
+
+====================================================
+추가 팁
+====================================================
+
+단계별 예상 소요 시간 및 검증 포인트:
+
+  Step 1 | 1~2시간 | YouTube API 키로 영상 25개 정상 표시
+  Step 2 | 1~2시간 | 국가/카테고리 변경 시 새 영상 fetch, 검색 동작 확인
+  Step 3 | 2~3시간 | 즐겨찾기 새로고침 후에도 유지, 다크모드 토글, 통계 모달 정확성
+
+각 Step 완료 후 npm run dev 로 동작 확인 후 다음 Step을 요청하세요.
+Step 3 완료 후에는 아래 명령으로 GitHub Pages 배포:
+  npm run build && npm run deploy  (gh-pages 패키지 필요)
+
+====================================================
